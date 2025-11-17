@@ -1,0 +1,58 @@
+name: CI with Security Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-scan:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Set up Python
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      # Install Dependencies
+
+      - name: Install dependencies
+        run: |
+          echo "Installing project dependencies and security tools..."
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install "safety==2.3.5" bandit pytest
+      
+      # Runnung tests
+
+      - name: Run Tests
+        run: |
+          echo "Running unit tests..."
+          python -m pytest -q tests/
+
+      # Dependency Scans
+
+      - name: Security Check - Dependency Scan (installed env)
+        run: |
+          echo "Checking for vulnerable dependencies..."
+          python -m safety check --full-report || true
+        continue-on-error: true
+
+      - name: Security Check - Dependency Scan (requirements.txt)
+        run: |
+          echo "Checking for vulnerabilities in requirements.txt..."
+          python -m safety check --full-report --file=requirements.txt || true
+        continue-on-error: true
+
+      - name: Security Check - Code Scan
+        run: |
+          echo "Scanning code for security issues..."
+          python -m bandit -r src/ -ll
+        continue-on-error: true
